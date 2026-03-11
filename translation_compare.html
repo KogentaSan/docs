@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenTTD 翻譯校對</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .entry { border: 1px solid #ccc; margin-bottom: 15px; padding: 10px; }
+    .key { font-weight: bold; background: #f2f2f2; padding: 5px; }
+    .lang { margin: 3px 0; }
+    .diff { background-color: #ffe0e0; } /* highlight 差異 */
+    #search { margin-bottom: 15px; padding: 5px; width: 300px; }
+    .toggle { cursor: pointer; color: blue; text-decoration: underline; }
+    .line { font-size: 0.9em; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>OpenTTD 翻譯校對頁面</h1>
+  <p>逐個 key 對比 English、繁體、簡體、粵語翻譯，並顯示原檔行數。</p>
+  <input type="text" id="search" placeholder="搜尋 key 或字句..." onkeyup="filterEntries()">
+
+  <div id="compare"></div>
+
+  <script>
+    async function loadLangFile(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const lines = text.split("\n");
+      const dict = {};
+      lines.forEach((line, idx) => {
+        if (line.includes(":")) {
+          const [key, value] = line.split(":", 2);
+          dict[key.trim()] = { value: value.trim(), line: idx + 1 };
+        }
+      });
+      return dict;
+    }
+
+    async function buildEntries() {
+      const langs = {
+        English: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/english.txt",
+        Traditional: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/traditional_chinese.txt",
+        Simplified: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/simplified_chinese.txt",
+        Cantonese: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/cantonese.txt"
+      };
+
+      const data = {};
+      for (const [lang, url] of Object.entries(langs)) {
+        data[lang] = await loadLangFile(url);
+      }
+
+      const container = document.getElementById("compare");
+      const keys = Object.keys(data.English);
+      for (const key of keys) {
+        const div = document.createElement("div");
+        div.className = "entry";
+        div.innerHTML = `
+          <div class="key">
+            ${key} <span class="line">(Line ${data.English[key]?.line || "-"})</span>
+            <span class="toggle" onclick="toggleEntry(this)">[展開/收起]</span>
+          </div>
+          <div class="lang">English: ${data.English[key]?.value || ""} <span class="line">(Line ${data.English[key]?.line || "-"})</span></div>
+          <div class="lang ${highlightDiff(data.Traditional[key]?.value, data.Cantonese[key]?.value)}">
+            Traditional: ${data.Traditional[key]?.value || ""} <span class="line">(Line ${data.Traditional[key]?.line || "-"})</span>
+          </div>
+          <div class="lang">Simplified: ${data.Simplified[key]?.value || ""} <span class="line">(Line ${data.Simplified[key]?.line || "-"})</span></div>
+          <div class="lang ${highlightDiff(data.Traditional[key]?.value, data.Cantonese[key]?.value)}">
+            Cantonese: ${data.Cantonese[key]?.value || ""} <span class="line">(Line ${data.Cantonese[key]?.line || "-"})</span>
+          </div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    function highlightDiff(trad, yue) {
+      return (trad && yue && trad !== yue) ? "diff" : "";
+    }
+
+    function filterEntries() {
+      const input = document.getElementById("search").value.toLowerCase();
+      const entries = document.querySelectorAll(".entry");
+      entries.forEach(entry => {
+        entry.style.display = entry.innerText.toLowerCase().includes(input) ? "" : "none";
+      });
+    }
+
+    function toggleEntry(el) {
+      const parent = el.closest(".entry");
+      const langs = parent.querySelectorAll(".lang");
+      langs.forEach(lang => {
+        lang.style.display = (lang.style.display === "none") ? "" : "none";
+      });
+    }
+
+    buildEntries();
+  </script>
+</body>
+</html>
