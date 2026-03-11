@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenTTD 翻譯校對</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    tr:nth-child(even) { background-color: #fafafa; }
+    .diff { background-color: #ffe0e0; } /* highlight 差異 */
+    input { margin-bottom: 10px; padding: 5px; width: 300px; }
+  </style>
+</head>
+<body>
+  <h1>OpenTTD 翻譯校對頁面</h1>
+  <p>對比 English、繁體中文、簡體中文、粵語翻譯。</p>
+  <input type="text" id="search" placeholder="搜尋 key 或字句..." onkeyup="filterTable()">
+
+  <table id="compare">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>English</th>
+        <th>Traditional</th>
+        <th>Simplified</th>
+        <th>Cantonese</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function loadLangFile(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const lines = text.split("\n");
+      const dict = {};
+      for (let line of lines) {
+        if (line.includes(":")) {
+          const [key, value] = line.split(":", 2);
+          dict[key.trim()] = value.trim();
+        }
+      }
+      return dict;
+    }
+
+    async function buildTable() {
+      const langs = {
+        English: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/english.txt",
+        Traditional: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/traditional_chinese.txt",
+        Simplified: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/simplified_chinese.txt",
+        Cantonese: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/cantonese.txt"
+      };
+
+      const data = {};
+      for (const [lang, url] of Object.entries(langs)) {
+        data[lang] = await loadLangFile(url);
+      }
+
+      const tbody = document.querySelector("#compare tbody");
+      const keys = Object.keys(data.English);
+      for (const key of keys) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${key}</td>
+          <td>${data.English[key] || ""}</td>
+          <td>${data.Traditional[key] || ""}</td>
+          <td>${data.Simplified[key] || ""}</td>
+          <td>${data.Cantonese[key] || ""}</td>
+        `;
+        // highlight 差異：繁體 vs 粵語唔同
+        if (data.Traditional[key] && data.Cantonese[key] && data.Traditional[key] !== data.Cantonese[key]) {
+          tr.classList.add("diff");
+        }
+        tbody.appendChild(tr);
+      }
+    }
+
+    function filterTable() {
+      const input = document.getElementById("search").value.toLowerCase();
+      const rows = document.querySelectorAll("#compare tbody tr");
+      rows.forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+      });
+    }
+
+    buildTable();
+  </script>
+</body>
+</html>
