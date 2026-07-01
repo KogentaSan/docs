@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <title>OpenTTD 翻譯校對 (雙軌標記完備版)</title>
+  <title>OpenTTD 翻譯校對 (全功能標記完備版)</title>
   <style>
     :root {
       --bg-color: #f9f9f9;
@@ -15,6 +15,8 @@
       --stat-bg: #ebedf0;
       --todo-border: #f1c40f;
       --todo-bg: #fef9e7;
+      --todo-cant-border: #3498db;
+      --todo-cant-bg: #ebf5fb;
     }
 
     [data-theme="dark"] {
@@ -28,6 +30,8 @@
       --stat-bg: #2f3335;
       --todo-border: #d4ac0d;
       --todo-bg: #3a351c;
+      --todo-cant-border: #2980b9;
+      --todo-cant-bg: #1c3345;
     }
 
     body { font-family: Arial, sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
@@ -48,15 +52,18 @@
     .btn-danger:hover { background: #c0392b; }
     .btn-copy { padding: 2px 6px; font-size: 11px; margin-left: 8px; cursor: pointer; border: 1px solid var(--card-border); background: var(--bg-color); color: var(--text-color); border-radius: 3px; }
 
-    /* 卡片基本與狀態樣式 */
+    /* 卡片狀態樣式與邊框優先權 */
     .entry { border: 1px solid var(--card-border); margin-bottom: 15px; padding: 10px; background: var(--card-bg); border-radius: 4px; position: relative; transition: border 0.2s, background-color 0.2s; }
     
-    /* 已審核優先顯示綠邊 */
-    .entry.checked { border-left: 5px solid #2ecc71; }
-    /* 待改狀態顯示黃邊與黃底 */
+    /* 1. 粵中待改底色與邊框 */
+    .entry.todo-cant-modify { border-left: 5px solid var(--todo-cant-border); background-color: var(--todo-cant-bg); }
+    /* 2. 繁中待改底色與邊框 (覆蓋粵中邊框) */
     .entry.todo-modify { border-left: 5px solid var(--todo-border); background-color: var(--todo-bg); }
-    /* 如果同時勾選已審核與待改，由綠邊主導但保留底色 */
-    .entry.checked.todo-modify { border-left: 5px solid #2ecc71; }
+    /* 3. 已審核綠邊 (最高邊框優先權) */
+    .entry.checked { border-left: 5px solid #2ecc71; }
+    
+    /* 混合底色處理（如果同時勾選繁中同粵中待改） */
+    .entry.todo-modify.todo-cant-modify { background: linear-gradient(to right, var(--todo-bg), var(--todo-cant-bg)); }
 
     .key { font-weight: bold; background: var(--header-bg); padding: 6px; display: flex; justify-content: space-between; align-items: center; border-radius: 3px; margin-bottom: 5px; }
     .key-left { display: flex; align-items: center; }
@@ -77,20 +84,22 @@
     .line { font-size: 0.9em; color: #7f8c8d; font-weight: normal; margin-left: 5px; }
     .check-label { font-size: 13px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px; }
     .todo-label { font-size: 13px; font-weight: bold; color: #e67e22; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .todo-cant-label { font-size: 13px; font-weight: bold; color: #2980b9; cursor: pointer; display: flex; align-items: center; gap: 4px; }
   </style>
 </head>
 <body>
 
   <h1>OpenTTD 翻譯校對頁面</h1>
-  <p>已優化：新增「繁中待改」黃色標記與計數統計，支援進度同步記憶與一鍵徹底清理功能。</p>
+  <p>已優化：新增「粵中待改」藍色標記與計數統計，支援全狀態本地同步記憶與一鍵徹底清理清理功能。</p>
 
   <!-- 儀表板 -->
   <div class="dashboard">
     <div class="stats-grid">
       <div>總項目數: <span id="stat-total">0</span></div>
       <div>需校對(繁粵不同): <span id="stat-diff">0</span></div>
-      <div>繁中待改項目: <span id="stat-todo" style="color:#e67e22;">0</span></div>
-      <div>已審核項目: <span id="stat-checked">0</span> / <span id="stat-total-dup">0</span></div>
+      <div>繁中待改: <span id="stat-todo" style="color:#e67e22;">0</span></div>
+      <div>粵中待改: <span id="stat-todo-cant" style="color:#2980b9;">0</span></div>
+      <div>已審核項目: <span id="stat-checked">0 holiday</span> / <span id="stat-total-dup">0</span></div>
       <div>審核進度: <span id="stat-percent">0%</span></div>
     </div>
     <div class="progress-bar-container">
@@ -104,7 +113,7 @@
       <input type="text" id="search" placeholder="搜尋 key 或字句..." onkeyup="filterEntries()">
       <button class="btn" onclick="toggleTheme()">切換深色/淺色模式</button>
     </div>
-    <button class="btn btn-danger" onclick="clearAllRecords()">⚠️ 清除所有記錄（審核、待改與摺疊）</button>
+    <button class="btn btn-danger" onclick="clearAllRecords()">⚠️ 清除所有記錄（審核、繁粵待改與摺疊）</button>
   </div>
 
   <div id="compare"></div>
@@ -126,9 +135,9 @@
       }
     }
 
-    // 全面一鍵清除清理
+    // 一鍵全清清理
     function clearAllRecords() {
-      if (confirm('確定要清除所有已審核、繁中待改標記以及摺疊開合狀態嗎？此操作會完全清理本地儲存數據且無法復原。')) {
+      if (confirm('確定要清除所有已審核、繁中待改、粵中待改標記以及摺疊開合狀態嗎？此操作會完全清理本地儲存數據且無法復原。')) {
         const theme = localStorage.getItem('theme');
         localStorage.clear();
         if (theme) localStorage.setItem('theme', theme);
@@ -190,13 +199,15 @@
       }
     }
 
-    // 更新儀表板（同步計算已審核與待改數目）
+    // 更新儀表板數據
     function updateDashboard() {
       const checkedCount = document.querySelectorAll('.entry-checkbox:checked').length;
       const todoCount = document.querySelectorAll('.todo-checkbox:checked').length;
+      const todoCantCount = document.querySelectorAll('.todo-cant-checkbox:checked').length;
       
       document.getElementById('stat-checked').innerText = checkedCount;
       document.getElementById('stat-todo').innerText = todoCount;
+      document.getElementById('stat-todo-cant').innerText = todoCantCount;
       
       if (totalKeysCount > 0) {
         const percent = Math.round((checkedCount / totalKeysCount) * 100);
@@ -205,7 +216,6 @@
       }
     }
 
-    // 處理已審核狀態變更
     function handleCheckboxChange(checkbox, key) {
       const entryDiv = checkbox.closest('.entry');
       if (checkbox.checked) {
@@ -218,7 +228,6 @@
       updateDashboard();
     }
 
-    // 處理繁中待改狀態變更
     function handleTodoChange(checkbox, key) {
       const entryDiv = checkbox.closest('.entry');
       if (checkbox.checked) {
@@ -227,6 +236,18 @@
       } else {
         entryDiv.classList.remove('todo-modify');
         localStorage.removeItem('todo_' + key);
+      }
+      updateDashboard();
+    }
+
+    function handleTodoCantChange(checkbox, key) {
+      const entryDiv = checkbox.closest('.entry');
+      if (checkbox.checked) {
+        entryDiv.classList.add('todo-cant-modify');
+        localStorage.setItem('todo_cant_' + key, 'true');
+      } else {
+        entryDiv.classList.remove('todo-cant-modify');
+        localStorage.removeItem('todo_cant_' + key);
       }
       updateDashboard();
     }
@@ -264,12 +285,15 @@
         
         if (isDiff) diffCount++;
 
-        // 讀取本地儲存的審核狀態與待改狀態
+        // 讀取狀態
         const isChecked = localStorage.getItem('check_' + key) === 'true';
         if (isChecked) div.classList.add('checked');
 
         const isTodo = localStorage.getItem('todo_' + key) === 'true';
         if (isTodo) div.classList.add('todo-modify');
+
+        const isTodoCant = localStorage.getItem('todo_cant_' + key) === 'true';
+        if (isTodoCant) div.classList.add('todo-cant-modify');
 
         const isCollapsed = localStorage.getItem('collapse_' + key) === 'true';
         const displayStyle = isCollapsed ? 'none' : 'flex';
@@ -285,6 +309,10 @@
               <label class="todo-label">
                 <input type="checkbox" class="todo-checkbox" ${isTodo ? 'checked' : ''} onchange="handleTodoChange(this, '${key}')">
                 繁中待改
+              </label>
+              <label class="todo-cant-label">
+                <input type="checkbox" class="todo-cant-checkbox" ${isTodoCant ? 'checked' : ''} onchange="handleTodoCantChange(this, '${key}')">
+                粵中待改
               </label>
               <label class="check-label">
                 <input type="checkbox" class="entry-checkbox" ${isChecked ? 'checked' : ''} onchange="handleCheckboxChange(this, '${key}')">
