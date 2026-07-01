@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenTTD 翻譯校對 (雙軌標記完備版)</title>
+  <style>
+    :root {
+      --bg-color: #f9f9f9;
+      --text-color: #333;
+      --card-bg: #fff;
+      --card-border: #ccc;
+      --header-bg: #f2f2f2;
+      --diff-bg: #ffe0e0;
+      --diff-text: #333;
+      --stat-bg: #ebedf0;
+      --todo-border: #f1c40f;
+      --todo-bg: #fef9e7;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #181a1b;
+      --text-color: #e8e6e3;
+      --card-bg: #242729;
+      --card-border: #3e4446;
+      --header-bg: #2f3335;
+      --diff-bg: #612626;
+      --diff-text: #fcdede;
+      --stat-bg: #2f3335;
+      --todo-border: #d4ac0d;
+      --todo-bg: #3a351c;
+    }
+
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
+    h1 { margin-bottom: 5px; }
+    p { color: #7f8c8d; margin-top: 0; }
+    
+    .control-panel { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px; gap: 10px; }
+    #search { padding: 6px; width: 300px; font-size: 14px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-color); border-radius: 4px; }
+    
+    .dashboard { background: var(--stat-bg); padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid var(--card-border); }
+    .stats-grid { display: flex; gap: 20px; font-size: 14px; font-weight: bold; margin-bottom: 8px; flex-wrap: wrap; }
+    .progress-bar-container { background: #ddd; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; }
+    .progress-bar { background: #2ecc71; height: 100%; width: 0%; transition: width 0.3s ease; }
+    
+    .btn { padding: 6px 12px; cursor: pointer; border-radius: 4px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-color); font-weight: bold; }
+    .btn:hover { opacity: 0.9; }
+    .btn-danger { background: #e74c3c; color: white; border-color: #c0392b; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-copy { padding: 2px 6px; font-size: 11px; margin-left: 8px; cursor: pointer; border: 1px solid var(--card-border); background: var(--bg-color); color: var(--text-color); border-radius: 3px; }
+
+    /* 卡片基本與狀態樣式 */
+    .entry { border: 1px solid var(--card-border); margin-bottom: 15px; padding: 10px; background: var(--card-bg); border-radius: 4px; position: relative; transition: border 0.2s, background-color 0.2s; }
+    
+    /* 已審核優先顯示綠邊 */
+    .entry.checked { border-left: 5px solid #2ecc71; }
+    /* 待改狀態顯示黃邊與黃底 */
+    .entry.todo-modify { border-left: 5px solid var(--todo-border); background-color: var(--todo-bg); }
+    /* 如果同時勾選已審核與待改，由綠邊主導但保留底色 */
+    .entry.checked.todo-modify { border-left: 5px solid #2ecc71; }
+
+    .key { font-weight: bold; background: var(--header-bg); padding: 6px; display: flex; justify-content: space-between; align-items: center; border-radius: 3px; margin-bottom: 5px; }
+    .key-left { display: flex; align-items: center; }
+    .key-right { display: flex; align-items: center; gap: 14px; }
+    
+    .lang { margin: 4px 0; font-size: 14px; line-height: 1.5; display: flex; align-items: flex-start; padding: 4px 5px; }
+    .label { font-weight: bold; display: inline-block; width: 45px; flex-shrink: 0; }
+    .lang-text { flex-grow: 1; white-space: pre-wrap; word-break: break-all; }
+
+    .lang-en .lang-text { font-family: Arial, sans-serif; font-weight: normal; }
+    .lang-simp .lang-text { font-family: "Microsoft YaHei", "微軟雅黑", sans-serif; font-weight: normal; }
+    .lang-trad .lang-text, .lang-cant .lang-text { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; font-weight: bold; }
+    
+    .diff { background-color: var(--diff-bg); color: var(--diff-text); border-radius: 2px; } 
+    .zw-highlight { background-color: #ff7675; color: white; padding: 1px 4px; border-radius: 3px; font-size: 12px; font-weight: bold; margin: 0 2px; display: inline-block; }
+    
+    .toggle { cursor: pointer; color: #3498db; text-decoration: underline; font-weight: normal; font-size: 13px; min-width: 65px; text-align: right; }
+    .line { font-size: 0.9em; color: #7f8c8d; font-weight: normal; margin-left: 5px; }
+    .check-label { font-size: 13px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .todo-label { font-size: 13px; font-weight: bold; color: #e67e22; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  </style>
+</head>
+<body>
+
+  <h1>OpenTTD 翻譯校對頁面</h1>
+  <p>已優化：新增「繁中待改」黃色標記與計數統計，支援進度同步記憶與一鍵徹底清理功能。</p>
+
+  <!-- 儀表板 -->
+  <div class="dashboard">
+    <div class="stats-grid">
+      <div>總項目數: <span id="stat-total">0</span></div>
+      <div>需校對(繁粵不同): <span id="stat-diff">0</span></div>
+      <div>繁中待改項目: <span id="stat-todo" style="color:#e67e22;">0</span></div>
+      <div>已審核項目: <span id="stat-checked">0</span> / <span id="stat-total-dup">0</span></div>
+      <div>審核進度: <span id="stat-percent">0%</span></div>
+    </div>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- 控制列 -->
+  <div class="control-panel">
+    <div>
+      <input type="text" id="search" placeholder="搜尋 key 或字句..." onkeyup="filterEntries()">
+      <button class="btn" onclick="toggleTheme()">切換深色/淺色模式</button>
+    </div>
+    <button class="btn btn-danger" onclick="clearAllRecords()">⚠️ 清除所有記錄（審核、待改與摺疊）</button>
+  </div>
+
+  <div id="compare"></div>
+
+  <script>
+    let totalKeysCount = 0;
+
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+
+    function toggleTheme() {
+      if (document.documentElement.getAttribute('data-theme') === 'dark') {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+      }
+    }
+
+    // 全面一鍵清除清理
+    function clearAllRecords() {
+      if (confirm('確定要清除所有已審核、繁中待改標記以及摺疊開合狀態嗎？此操作會完全清理本地儲存數據且無法復原。')) {
+        const theme = localStorage.getItem('theme');
+        localStorage.clear();
+        if (theme) localStorage.setItem('theme', theme);
+        window.location.reload();
+      }
+    }
+
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "已複製！";
+        btn.style.borderColor = "#2ecc71";
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.borderColor = "";
+        }, 1500);
+      }).catch(err => {
+        console.error('複製失敗: ', err);
+      });
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function highlightZeroWidthChars(text) {
+      const escaped = escapeHtml(text);
+      const zwRegex = /([\u200B-\u200D\uFEFF\u200E\u200F])/g;
+      if (zwRegex.test(escaped)) {
+        return escaped.replace(zwRegex, '<span class="zw-highlight" title="偵測到隱形零寬字元">⚠️零寬字元</span>');
+      }
+      return escaped;
+    }
+
+    async function loadLangFile(url) {
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        const lines = text.split("\n");
+        const dict = {};
+        lines.forEach((line, idx) => {
+          const firstColon = line.indexOf(":");
+          if (firstColon !== -1) {
+            const key = line.substring(0, firstColon).trim();
+            const value = line.substring(firstColon + 1).trim();
+            dict[key] = { value: value, line: idx + 1 };
+          }
+        });
+        return dict;
+      } catch (e) {
+        console.error("無法讀取檔案: " + url, e);
+        return {};
+      }
+    }
+
+    // 更新儀表板（同步計算已審核與待改數目）
+    function updateDashboard() {
+      const checkedCount = document.querySelectorAll('.entry-checkbox:checked').length;
+      const todoCount = document.querySelectorAll('.todo-checkbox:checked').length;
+      
+      document.getElementById('stat-checked').innerText = checkedCount;
+      document.getElementById('stat-todo').innerText = todoCount;
+      
+      if (totalKeysCount > 0) {
+        const percent = Math.round((checkedCount / totalKeysCount) * 100);
+        document.getElementById('stat-percent').innerText = percent + "%";
+        document.getElementById('progress-bar').style.width = percent + "%";
+      }
+    }
+
+    // 處理已審核狀態變更
+    function handleCheckboxChange(checkbox, key) {
+      const entryDiv = checkbox.closest('.entry');
+      if (checkbox.checked) {
+        entryDiv.classList.add('checked');
+        localStorage.setItem('check_' + key, 'true');
+      } else {
+        entryDiv.classList.remove('checked');
+        localStorage.removeItem('check_' + key);
+      }
+      updateDashboard();
+    }
+
+    // 處理繁中待改狀態變更
+    function handleTodoChange(checkbox, key) {
+      const entryDiv = checkbox.closest('.entry');
+      if (checkbox.checked) {
+        entryDiv.classList.add('todo-modify');
+        localStorage.setItem('todo_' + key, 'true');
+      } else {
+        entryDiv.classList.remove('todo-modify');
+        localStorage.removeItem('todo_' + key);
+      }
+      updateDashboard();
+    }
+
+    async function buildEntries() {
+      const langs = {
+        English: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/english.txt",
+        Traditional: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/traditional_chinese.txt",
+        Simplified: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/simplified_chinese.txt",
+        Cantonese: "https://raw.githubusercontent.com/KogentaSan/OpenTTD/Yue-patch/src/lang/cantonese.txt"
+      };
+
+      const data = {};
+      for (const [lang, url] of Object.entries(langs)) {
+        data[lang] = await loadLangFile(url);
+      }
+
+      const container = document.getElementById("compare");
+      const keys = Object.keys(data.English || {});
+      totalKeysCount = keys.length;
+      
+      let diffCount = 0;
+
+      document.getElementById('stat-total').innerText = totalKeysCount;
+      document.getElementById('stat-total-dup').innerText = totalKeysCount;
+
+      for (const key of keys) {
+        const div = document.createElement("div");
+        div.className = "entry";
+        
+        const tradVal = data.Traditional[key]?.value || "";
+        const yueVal = data.Cantonese[key]?.value || "";
+        const isDiff = (tradVal && yueVal && tradVal !== yueVal);
+        const diffClass = isDiff ? "diff" : "";
+        
+        if (isDiff) diffCount++;
+
+        // 讀取本地儲存的審核狀態與待改狀態
+        const isChecked = localStorage.getItem('check_' + key) === 'true';
+        if (isChecked) div.classList.add('checked');
+
+        const isTodo = localStorage.getItem('todo_' + key) === 'true';
+        if (isTodo) div.classList.add('todo-modify');
+
+        const isCollapsed = localStorage.getItem('collapse_' + key) === 'true';
+        const displayStyle = isCollapsed ? 'none' : 'flex';
+        const toggleText = isCollapsed ? '[展開]' : '[收起]';
+
+        div.innerHTML = `
+          <div class="key">
+            <div class="key-left">
+              <span>${escapeHtml(key)} <span class="line">(Line ${data.English[key]?.line || "-"})</span></span>
+              <button class="btn-copy" onclick="copyToClipboard('${key}', this)">複製 Key</button>
+            </div>
+            <div class="key-right">
+              <label class="todo-label">
+                <input type="checkbox" class="todo-checkbox" ${isTodo ? 'checked' : ''} onchange="handleTodoChange(this, '${key}')">
+                繁中待改
+              </label>
+              <label class="check-label">
+                <input type="checkbox" class="entry-checkbox" ${isChecked ? 'checked' : ''} onchange="handleCheckboxChange(this, '${key}')">
+                標記為已審核
+              </label>
+              <span class="toggle" onclick="toggleEntry(this, '${key}')">${toggleText}</span>
+            </div>
+          </div>
+          <div class="lang lang-en" style="display: ${displayStyle};">
+            <span class="label">英文:</span>
+            <span class="lang-text">${highlightZeroWidthChars(data.English[key]?.value || "")} <span class="line">(Line ${data.English[key]?.line || "-"})</span></span>
+          </div>
+          <div class="lang lang-trad ${diffClass}" style="display: ${displayStyle};">
+            <span class="label">繁中:</span>
+            <span class="lang-text">${highlightZeroWidthChars(tradVal)} <span class="line">(Line ${data.Traditional[key]?.line || "-"})</span></span>
+          </div>
+          <div class="lang lang-simp" style="display: ${displayStyle};">
+            <span class="label">簡中:</span>
+            <span class="lang-text">${highlightZeroWidthChars(data.Simplified[key]?.value || "")} <span class="line">(Line ${data.Simplified[key]?.line || "-"})</span></span>
+          </div>
+          <div class="lang lang-cant ${diffClass}" style="display: ${displayStyle};">
+            <span class="label">粵中:</span>
+            <span class="lang-text">${highlightZeroWidthChars(yueVal)} <span class="line">(Line ${data.Cantonese[key]?.line || "-"})</span></span>
+          </div>
+        `;
+        container.appendChild(div);
+      }
+
+      document.getElementById('stat-diff').innerText = diffCount;
+      updateDashboard();
+    }
+
+    function filterEntries() {
+      const input = document.getElementById("search").value.toLowerCase();
+      const entries = document.querySelectorAll(".entry");
+      entries.forEach(entry => {
+        entry.style.display = entry.innerText.toLowerCase().includes(input) ? "" : "none";
+      });
+    }
+
+    function toggleEntry(el, key) {
+      const parent = el.closest(".entry");
+      const langs = parent.querySelectorAll(".lang");
+      let currentStatusIsCollapsed = false;
+
+      langs.forEach(lang => {
+        if (lang.style.display === "none") {
+          lang.style.display = "flex";
+          currentStatusIsCollapsed = false;
+        } else {
+          lang.style.display = "none";
+          currentStatusIsCollapsed = true;
+        }
+      });
+
+      if (currentStatusIsCollapsed) {
+        el.innerText = "[展開]";
+        localStorage.setItem('collapse_' + key, 'true');
+      } else {
+        el.innerText = "[收起]";
+        localStorage.removeItem('collapse_' + key);
+      }
+    }
+
+    buildEntries();
+  </script>
+</body>
+</html>
